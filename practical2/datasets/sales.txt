@@ -1,0 +1,9 @@
+store product_category sales_amount
+Store_A	Electronics	1200
+Store_A	Groceries	450
+Store_A	Clothing	780
+Store_B	Electronics	2300
+Store_B	Clothing	680
+Store_C	Groceries	410
+Store_C	Clothing	520
+Store_C	Electronics	890
