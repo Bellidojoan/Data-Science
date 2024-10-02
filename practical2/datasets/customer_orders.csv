@@ -1,0 +1,6 @@
+"customer_id","customer_name","customer_age","order_id","order_amount","order_date"
+101,"Alice",25,201,150,"2023-09-01"
+101,"Alice",25,204,110,"2023-09-04"
+102,"Bob",30,202,200,"2023-09-02"
+103,"Charlie",35,203,340,"2023-09-03"
+104,"Diana",28,205,500,"2023-09-05"

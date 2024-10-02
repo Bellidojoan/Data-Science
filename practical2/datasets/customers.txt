@@ -1,0 +1,5 @@
+ customer_id  customer_name  customer_age
+ 101          Alice          25
+ 102          Bob            30
+ 103          Charlie        35
+ 104          Diana          28

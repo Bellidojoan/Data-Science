@@ -1,0 +1,85 @@
+---
+title: "Practical 3"
+subtitle: "Visualisation using qplot()"
+author: "Joan Navarro Bellido"
+output: pdf_document
+---
+
+```{r}
+library(ggplot2)
+
+# Load the dataset
+queratocono <- read.csv("./datasets/queratocono.csv")
+
+# Display the names of the columns
+colnames(queratocono)
+```
+
+
+# EXERCICE 1
+
+```{r}
+# Study the relation between K1 and K2 with smoother
+# (by default and using linear regression).
+
+# Default smoother
+qplot(K1, K2, data = queratocono, geom = "point") +
+  geom_smooth()
+
+# Linear regression smoother
+qplot(K1, K2, data = queratocono, geom = "point") +
+  geom_smooth(method = "lm")
+```
+
+# EXERCICE 2
+```{r}
+# Study the relation between K1 and K2
+# distinguishing by factor na.
+
+qplot(K1, K2, data = queratocono, color = factor(na), geom = "point") +
+  geom_smooth(method = "lm") +
+  labs(color = "Number of Rings")
+```
+
+# EXERCICE 3
+```{r}
+# Study the relation between K1 and K1.salida
+
+qplot(K1, K1.salida, data = queratocono, geom = "point") +
+  geom_smooth()
+```
+
+# EXERCICE 4
+```{r}
+# Build a histogram in terms of grosor
+# (note that grosor should be taken as a factor) of the inserted ring
+
+qplot(factor(grosor), data = queratocono, geom = "bar") +
+  labs(x = "Grosor (Thickness)")
+```
+
+# EXERCICE 5
+```{r}
+# Build a scatter plot of the relation between K1 and K2 with “faceting” in
+# terms of the parameters diam and na, by assigning different colours to the
+# points according to the thickness (grosor) of the ring. In order to visualise
+# all points correctly use a transparency of value 1/3
+
+qplot(K1, K2, data = queratocono, color = factor(grosor), geom = "point", alpha = I(1 / 3)) +
+  facet_grid(diam ~ na) +
+  labs(color = "Grosor (Thickness)")
+```
+
+# EXERCICE 6
+```{r}
+# Create two boxplots that show a summary of the distributions of K1 and K2
+# (separately) with respect to the thickness (grosor)
+
+# Boxplot for K1
+qplot(factor(grosor), K1, data = queratocono, geom = "boxplot") +
+  labs(x = "Grosor (Thickness)", y = "K1")
+
+# Boxplot for K2
+qplot(factor(grosor), K2, data = queratocono, geom = "boxplot") +
+  labs(x = "Grosor (Thickness)", y = "K2")
+```
