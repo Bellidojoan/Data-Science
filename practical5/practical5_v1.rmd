@@ -1,0 +1,114 @@
+---
+title: "Practical 5"
+subtitle: "Classification Models"
+author: "Joan Navarro Bellido"
+output: pdf_document
+---
+
+# PART 1: A classification case study
+```{r}
+# Load the dataset
+wine <- read.table("./dataset/wine.txt", header = FALSE, sep = ",")
+
+# Rename columns
+colnames(wine) <- c("class", "alco", "ma", "ash", "alc", "mg", "tp", "flav", "noflav", 
+                    "proa", "col", "hue", "od", "prol")
+
+# Convert class to a factor
+wine$class <- as.factor(wine$class)
+
+# Check structure
+str(wine)
+```
+
+```{r}
+library(ggplot2)
+
+# Scatterplot of Alcohol vs Magnesium colored by wine class
+qplot(alco, mg, data = wine, color = class, 
+      xlab = "Alcohol", ylab = "Magnesium")
+```
+
+```{r}
+pairs(wine[, 2:6], col = wine$class)
+```
+
+```{r}
+# Install and load the rpart package
+if (!require("rpart")) {
+  install.packages("rpart", dependencies = TRUE)
+  library("rpart")
+}
+
+# Build the decision tree model
+model <- rpart(class ~ ., data = wine, method = "class")
+
+# Plot the decision tree
+plot(model, main = "Classification Tree for Wine Dataset")
+text(model, use.n = TRUE, all = TRUE, cex = 0.8)
+```
+
+```{r}
+printcp(model)
+```
+
+# PART 2: Exercices
+
+```{r}
+# Randomly split the dataset into 75% train and 25% test.
+# Note: It can be done by using the sample function to generate
+# integers belonging to the interval [1..size(data set)].
+# Use these numbers to identify the instances.
+
+set.seed(123)  # Set seed for reproducibility
+train_indices <- sample(1:nrow(wine), size = 0.75 * nrow(wine))
+train_data <- wine[train_indices, ]
+test_data <- wine[-train_indices, ]
+```
+
+```{r}
+# Learn a decision tree using the training set.
+
+train_model <- rpart(class ~ ., data = train_data, method = "class")
+```
+
+```{r}
+# Visualise the tree and display the results. Is there any difference with respect to the 
+# model trained with the whole dataset?
+
+plot(train_model, main = "Classification Tree for Wine Dataset (Train Data)")
+text(train_model, use.n = TRUE, all = TRUE, cex = 0.8)
+```
+
+```{r}
+# Use the model to predict the class label for the test set by using the "predict" 
+# function. Repeat the predictions but now using the parameter type="class" (use a 
+# different variable to keep the new results). What are the differences?
+
+# Predict probabilities
+pred_prob <- predict(train_model, newdata = test_data)
+
+# Predict class labels
+pred_class <- predict(train_model, newdata = test_data, type = "class")
+```
+
+```{r}
+# Calculate the performance of the model when it is applied to the test set by 
+# displaying a table that shows the predicted classes versus the real classes.
+
+table(Predicted = pred_class, Actual = test_data$class)
+```
+
+```{r}
+# Try some other methods or parameters of the rpart
+# package to see whether you can still improve the results further.
+# You can also compare with other packages and classification techniques.
+
+# Example: Prune the tree using the optimal CP value
+optimal_cp <- train_model$cptable[which.min(train_model$cptable[, "xerror"]), "CP"]
+pruned_model <- prune(train_model, cp = optimal_cp)
+
+# Plot the pruned tree
+plot(pruned_model, main = "Pruned Classification Tree")
+text(pruned_model, use.n = TRUE, all = TRUE, cex = 0.8)
+```
