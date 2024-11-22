@@ -12,6 +12,15 @@ def load_json_data(file_path):
     with open(file_path, 'r') as f:
         return json.load(f)
 
+# Define Elo categories
+def classify_elo_category(elo):
+    if elo <= 1500:
+        return "Low"
+    elif 1500 < elo <= 2000:
+        return "Medium"
+    else:
+        return "High"
+
 # Analyze a single game
 def analyze_game(game_data, engine):
     moves = game_data["Moves"].split(" ")
@@ -45,7 +54,7 @@ def analyze_game(game_data, engine):
     return white_elo, black_elo, move_qualities, game_data["GameMode"]
 
 # Main analysis
-def analyze_quality_of_movements(json_files, output_csv, games_per_dataset=500):
+def analyze_quality_of_movements(json_files, output_csv, games_per_dataset=50000):
     results = []
     with chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH) as engine:
         for file_path in json_files:
@@ -69,6 +78,12 @@ def analyze_quality_of_movements(json_files, output_csv, games_per_dataset=500):
 
     # Save results to a CSV for further analysis
     df = pd.DataFrame(results)
+
+    # Calculate average Elo and classify categories
+    df['AvgElo'] = (df['WhiteElo'] + df['BlackElo']) / 2
+    df['EloCategory'] = df['AvgElo'].apply(classify_elo_category)
+
+    # Save to CSV
     df.to_csv(output_csv, index=False)
     print(f"Results saved to {output_csv}")
 
