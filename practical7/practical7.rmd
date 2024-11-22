@@ -1,0 +1,139 @@
+---
+title: "Practical 7"
+subtitle: "Model evaluation"
+author: "Joan Navarro Bellido"
+output: pdf_document
+---
+```{r}
+# Load required packages
+library(caret)
+library(dplyr)
+library(ggplot2)
+library(lattice)
+library(ROCR)
+```
+
+# Exercice 1
+```{r}
+# Load the dataset
+tic_tac_toe <- read.csv("./dataset/tic-tac-toe.txt", header = FALSE)
+head(tic_tac_toe)
+# Assign column names
+names(tic_tac_toe) <- c("top_left", "top_middle", "top_right",
+                        "middle_left", "middle_middle", "middle_right",
+                        "bottom_left", "bottom_middle", "bottom_right",
+                        "Class")
+
+# Check structure of the dataset and look for missing values
+str(tic_tac_toe)
+any(is.na(tic_tac_toe))
+```
+
+# Exercice 2
+```{r}
+# Create the split: 70% training, 30% testing
+train_index <- createDataPartition(tic_tac_toe$Class, p = 0.7, list = FALSE)
+
+# Split the data into training and testing sets
+train_data <- tic_tac_toe[train_index, ]
+test_data <- tic_tac_toe[-train_index, ]
+
+# Verify the structure of the training and testing data
+str(train_data)
+str(test_data)
+```
+
+# Exercice 3
+```{r}
+# Set up 10-fold cross-validation
+control <- trainControl(method = "cv", number = 10)
+
+# Naive Bayes Model
+nb_model <- train(Class ~ ., data = train_data, method = "nb", trControl = control)
+
+# Decision Tree Model
+dt_model <- train(Class ~ ., data = train_data, method = "rpart", trControl = control)
+
+# Neural Network Model
+nn_model <- train(Class ~ ., data = train_data, method = "nnet", trControl = control, trace = FALSE)
+
+# k-Nearest Neighbors Model
+knn_model <- train(Class ~ ., data = train_data, method = "knn", trControl = control)
+
+# Support Vector Machine Model
+svm_model <- train(Class ~ ., data = train_data, method = "svmLinear", trControl = control)
+```
+
+# Exercice 4
+```{r}
+# Ensure Class is a factor with consistent levels in training and test data
+train_data$Class <- factor(train_data$Class)
+test_data$Class <- factor(test_data$Class, levels = levels(train_data$Class))
+
+# Naive Bayes Predictions and Evaluation
+nb_pred <- factor(predict(nb_model, newdata = test_data), levels = levels(test_data$Class))
+nb_confusion <- confusionMatrix(nb_pred, test_data$Class)
+print(nb_confusion)
+
+# Decision Tree Predictions and Evaluation
+dt_pred <- factor(predict(dt_model, newdata = test_data), levels = levels(test_data$Class))
+dt_confusion <- confusionMatrix(dt_pred, test_data$Class)
+print(dt_confusion)
+
+# Neural Network Predictions and Evaluation
+nn_pred <- factor(predict(nn_model, newdata = test_data), levels = levels(test_data$Class))
+nn_confusion <- confusionMatrix(nn_pred, test_data$Class)
+print(nn_confusion)
+
+# k-Nearest Neighbors Predictions and Evaluation
+knn_pred <- factor(predict(knn_model, newdata = test_data), levels = levels(test_data$Class))
+knn_confusion <- confusionMatrix(knn_pred, test_data$Class)
+print(knn_confusion)
+
+# SVM Predictions and Evaluation
+svm_pred <- factor(predict(svm_model, newdata = test_data), levels = levels(test_data$Class))
+svm_confusion <- confusionMatrix(svm_pred, test_data$Class)
+print(svm_confusion)
+```
+
+```{r}
+# Function to visualize a confusion matrix as a heatmap
+plot_confusion_matrix <- function(conf_matrix, title = "Confusion Matrix") {
+    cm_df <- as.data.frame(conf_matrix$table)
+    colnames(cm_df) <- c("Prediction", "Reference", "Count")
+    
+    ggplot(cm_df, aes(x = Reference, y = Prediction, fill = Count)) +
+        geom_tile(color = "white") +
+        scale_fill_gradient(low = "lightblue", high = "darkblue") +
+        geom_text(aes(label = Count), color = "white", size = 5) +
+        labs(title = title, x = "Actual Class", y = "Predicted Class") +
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+
+# Use the function to plot each confusion matrix
+plot_confusion_matrix(nb_confusion, title = "Naive Bayes Confusion Matrix")
+plot_confusion_matrix(dt_confusion, title = "Decision Tree Confusion Matrix")
+plot_confusion_matrix(nn_confusion, title = "Neural Network Confusion Matrix")
+plot_confusion_matrix(knn_confusion, title = "K-Nearest Neighbors Confusion Matrix")
+plot_confusion_matrix(svm_confusion, title = "SVM Confusion Matrix")
+```
+
+# Exercice 5
+```{r}
+# Naive Bayes ROC Curve
+nb_prob <- predict(nb_model, newdata = test_data, type = "prob")[,2]
+nb_pred_roc <- prediction(nb_prob, as.numeric(test_data$Class) - 1)  # Convert class to 0/1
+nb_perf <- performance(nb_pred_roc, "tpr", "fpr")
+
+# Decision Tree ROC Curve
+dt_prob <- predict(dt_model, newdata = test_data, type = "prob")[,2]
+dt_pred_roc <- prediction(dt_prob, as.numeric(test_data$Class) - 1)
+dt_perf <- performance(dt_pred_roc, "tpr", "fpr")
+
+# Plot ROC Curves
+plot(nb_perf, col = "blue", main = "ROC Curves for All Models")
+plot(dt_perf, col = "green", add = TRUE)
+# Repeat similar lines for each model's ROC curve
+legend("bottomright", legend = c("Naive Bayes", "Decision Tree"), col = c("blue", "green"), lty = 1)
+```

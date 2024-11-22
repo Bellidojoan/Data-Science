@@ -1,0 +1,9 @@
+chess
+jsonlib
+numpy
+pandas
+matplotlib
+seaborn
+scipy
+scikit-learn
+threading

@@ -1,0 +1,361 @@
+---
+title: "Practical 6"
+subtitle: "Regression Models"
+author: "Joan Navarro Bellido"
+output: pdf_document
+---
+
+```{r}
+# Load required packages
+library(lattice)
+library(rpart)
+library(nnet)
+library(rpart.plot)
+library(stargazer)
+library(ggplot2)
+library(scales)
+library(Metrics)
+library(caret)
+library(randomForest)
+library(e1071)
+library(dplyr)
+```
+
+
+# Exercice 1
+```{r}
+# Load the dataset
+house <- read.csv(file = "./dataset/house.csv", sep = ";")
+
+# Remove street information
+house$street <- NULL
+
+# Exploring the dataset
+str(house)
+
+# Summary of the dataset
+summary(house)
+```
+
+# Exercice 2
+```{r}
+# Create a data frame for plotting
+forplot <- make.groups(
+  bath = data.frame(value = house$bath, Variable = "Bathrooms", price = house$price),
+  year = data.frame(value = house$year, Variable = "Year Built", price = house$price),
+  bed = data.frame(value = house$bed, Variable = "Bedrooms", price = house$price),
+  rooms = data.frame(value = house$rooms, Variable = "Rooms", price = house$price),
+  SqFt = data.frame(value = house$SqFt, Variable = "Square Footage", price = house$price)
+)
+
+# Plot with clear labels and titles
+xyplot(price ~ value | Variable, data = forplot, scales = list(relation = "free"),
+       main = "Price vs Other Variables",
+       xlab = "Variable Value", ylab = "Price")
+```
+
+# Exercice 3
+```{r}
+# It's possible to set the seed for reproducibility
+# if needed using set.seed(123)
+
+# Split the data into training (75%) and testing (25%)
+sample_index <- sample(seq_len(nrow(house)), size = 0.75 * nrow(house))
+train_data <- house[sample_index, ]
+test_data <- house[-sample_index, ]
+
+# Convert character columns to factors and align levels in training and test datasets
+train_data <- train_data %>% mutate(across(where(is.character), as.factor))
+test_data <- test_data %>% mutate(across(where(is.character), as.factor))
+
+# Ensure factor levels are aligned between train and test data for all factor columns
+for (col in names(train_data)) {
+  if (is.factor(train_data[[col]])) {
+    test_data[[col]] <- factor(test_data[[col]], levels = levels(train_data[[col]]))
+  }
+}
+
+# Ensure columns are in the same order in both datasets
+test_data <- test_data[, names(train_data)]
+```
+
+# Exercice 4
+```{r}
+# Fit a Linear Model
+lm_model <- lm(price ~ ., data = train_data)
+
+# Fit a Regression Tree (CART)
+cart_model <- rpart(price ~ ., data = train_data, method = "anova")
+
+# Fit a Neural Network
+nn_model <- nnet(price ~ ., data = train_data, size = 12, linout = TRUE, skip = TRUE, maxit = 500)
+
+# Summarize the neural network model training
+nn_final_result <- summary(nn_model)
+print(paste("Convergence Status:", ifelse(nn_final_result$convergence == 0, "Converged", "Not Converged")))
+print(paste("Final Error Value:", round(nn_final_result$value, 2)))
+
+# Optional: Display the hyperparameters and summary for confirmation
+cat("Hyperparameters used:\n")
+print(paste("Size:", nn_model$n[1]))
+print(paste("Max iterations:", nn_model$maxit))
+print(paste("Weight decay:", nn_model$decay))   
+```
+
+# Exercice 5
+```{r}
+# Linear Model Summary
+stargazer(lm_model, type = "text", title = "Linear Model Summary", 
+          single.row = TRUE, digits = 2, align = TRUE)
+```
+
+```{r}
+# Summary of Variable Importance
+importance <- cart_model$variable.importance
+print(importance)
+
+# Plot Variable Importance
+importance_df <- data.frame(Variable = names(importance), Importance = importance)
+
+# Plot Variable Importance with improved labels
+ggplot(importance_df, aes(x = reorder(Variable, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  scale_y_continuous(labels = comma) +  # Format y-axis with commas
+  labs(title = "Variable Importance in CART Model", x = "Variable", y = "Relative Importance Score") +
+  theme_minimal()
+
+# Plot the Complexity Parameter Table for pruning insight
+plotcp(cart_model, main = "Complexity Parameter (CP) Plot for CART Model")
+
+# Plot of the CART Model
+rpart.plot(cart_model,
+           type = 2,                # Display split labels only on branches
+           extra = 101,             # Display node percentage and response values
+           under = TRUE,            # Show the response value under each node
+           faclen = 3,              # Shorten factor level names if they are too long
+           cex = 0.75,              # Adjust text size for better readability
+           box.palette = "Blues",   # Use a color palette for easier differentiation of nodes
+           shadow.col = "gray",     # Add shadow for a 3D effect
+           tweak = 1.2,             # Adjust spacing in the plot for a clearer view
+           digits = 0,              # Show rounded values
+           main = "Enhanced CART Model Visualization")
+```
+
+```{r}
+# Neural Network Predictions Visualization
+nn_train_pred <- predict(nn_model, train_data, type = "raw")
+nn_comparison <- data.frame(Observed = train_data$price, Predicted = nn_train_pred)
+
+ggplot(nn_comparison, aes(x = Observed, y = Predicted)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(title = "Neural Network Model: Observed vs Predicted Prices",
+       x = "Observed Price", y = "Predicted Price") +
+  theme_minimal()
+```
+
+# Exercice 6
+```{r}
+# Visualize the complexity parameter plot with better formatting
+plotcp(cart_model, main = "Complexity Parameter (CP) Plot for CART Model")
+abline(v = which.min(cart_model$cptable[, "xerror"]), col = "red", lty = 2)
+text(which.min(cart_model$cptable[, "xerror"]), min(cart_model$cptable[, "xerror"]) + 0.02,
+     labels = paste("Optimal CP =", round(cart_model$cptable[which.min(cart_model$cptable[, "xerror"]), "CP"], 3)),
+     col = "red")
+mtext("Red line indicates the optimal CP for pruning", side = 3, line = 0.5, col = "red")
+
+# Prune the tree at an optimal CP value (e.g., 0.01 or based on the CP plot)
+pruned_cart_model <- prune(cart_model, cp = 0.01)  # Adjust the cp based on plotcp output
+
+# Visualize the pruned CART model with improved aesthetics
+rpart.plot(pruned_cart_model,
+           type = 2,                # Display split labels only on branches
+           extra = 101,             # Show percentage of observations and response values
+           under = TRUE,            # Display response values below each node
+           faclen = 3,              # Shorten factor level names for brevity
+           cex = 0.8,               # Adjust text size for better readability
+           box.palette = "Blues",   # Use a color palette for nodes
+           shadow.col = "gray",     # Add a shadow for a 3D effect
+           tweak = 1.1,             # Adjust spacing in the plot
+           main = "Pruned CART Model Visualization with Optimal Complexity")
+```
+
+# Exercice 7
+```{r}
+evaluate_model <- function(model, train_data, test_data, target_variable) {
+  # Align levels in test data
+  test_data$city <- factor(test_data$city, levels = levels(train_data$city))
+  test_data$state <- factor(test_data$state, levels = levels(train_data$state))
+
+  # Predict on training and test data
+  train_predictions <- predict(model, train_data)
+  test_predictions <- predict(model, test_data)
+
+  # Filter NA values for consistent metric calculation
+  actual_train <- na.omit(train_data[[target_variable]])
+  pred_train <- train_predictions[!is.na(train_predictions)]
+  
+  actual_test <- na.omit(test_data[[target_variable]])
+  pred_test <- test_predictions[!is.na(test_predictions)]
+  
+  # Calculate RMSE and MAE
+  train_rmse <- rmse(actual_train, pred_train)
+  train_mae <- mae(actual_train, pred_train)
+  
+  test_rmse <- rmse(actual_test, pred_test)
+  test_mae <- mae(actual_test, pred_test)
+  
+  return(list(train_rmse = train_rmse, train_mae = train_mae,
+              test_rmse = test_rmse, test_mae = test_mae))
+}
+
+# Assuming the target variable is "price" and the models are already trained
+lm_results <- evaluate_model(lm_model, train_data, test_data, "price")
+cart_results <- evaluate_model(cart_model, train_data, test_data, "price")
+nn_results <- evaluate_model(nn_model, train_data, test_data, "price")
+
+# Print results
+print("Linear Model Performance:")
+print(lm_results)
+
+print("CART Model Performance:")
+print(cart_results)
+
+print("Neural Network Model Performance:")
+print(nn_results)
+```
+
+# Exercice 8
+
+## 1. Linear Model (lm)
+```{r}
+# Interaction Terms: Add interaction terms to capture relationships between features.
+# This can be helpful if certain variables influence each other.
+# Feature Transformation: Apply transformations like log or polynomial terms to features
+# that might have non-linear relationships with the target variable.
+
+lm_model_improved <- lm(price ~ . + I(SqFt^2) + bed:bath + log(SqFt), data = train_data)
+summary(lm_model_improved)
+```
+
+## 2. CART Model (rpart)
+```{r}
+# Parameter Tuning: Use a grid search to try different values for parameters like cp (complexity parameter) and maxdepth.
+# This can help reduce overfitting or underfitting.
+# Pruning: Automatically prune the tree at the optimal cp level.
+
+cart_model_improved <- rpart(price ~ ., data = train_data, method = "anova", 
+                             control = rpart.control(cp = 0.01, maxdepth = 10))
+# Prune the tree
+optimal_cp <- cart_model_improved$cptable[which.min(cart_model_improved$cptable[,"xerror"]), "CP"]
+pruned_cart_model <- prune(cart_model_improved, cp = optimal_cp)
+rpart.plot(pruned_cart_model, main = "Optimally Pruned CART Model")
+```
+
+## 3. Neural Network (nnet)
+```{r}
+# Additional Hidden Layers: Adding layers and nodes can improve
+# the model’s capacity to capture complex relationships.
+# Parameter Tuning: Adjust parameters like size (number of neurons),
+# decay (weight decay for regularization), and maxit (max iterations).
+# Standardize Features: Neural networks benefit from standardized data,
+# so scaling features before training may help.
+
+# Standardize features
+preProcess <- preProcess(train_data, method = c("center", "scale"))
+train_data_scaled <- predict(preProcess, train_data)
+test_data_scaled <- predict(preProcess, test_data)
+
+# Train a neural network with modified parameters
+nn_model_improved <- nnet(price ~ ., data = train_data_scaled, size = 5, decay = 0.1, linout = TRUE, maxit = 1000)
+```
+
+## 4. Random Forest as an Alternative to CART
+```{r}
+# Random Forest is a tree-based method that uses an ensemble
+# of decision trees to improve model accuracy and robustness.
+# It is typically less prone to overfitting than a single CART model.
+
+# Train a random forest model
+rf_model <- randomForest(price ~ ., data = train_data, ntree = 100, mtry = 3, importance = TRUE)
+# Evaluate feature importance
+varImpPlot(rf_model, main = "Random Forest Variable Importance")
+```
+
+## 5. Support Vector Regression (SVR)
+```{r}
+# SVR can be effective for regression, especially with a mix
+# of continuous and categorical features.
+# It can capture non-linear relationships through kernel functions.
+
+# Train a Support Vector Regression model
+svr_model <- svm(price ~ ., data = train_data, kernel = "radial", cost = 1, gamma = 0.1)
+```
+
+## Evaluation function
+```{r}
+evaluate_model <- function(model, train_data, test_data, target_variable) {
+  # Ensure consistent factor levels between train and test data
+  test_data$city <- factor(test_data$city, levels = levels(train_data$city))
+  test_data$state <- factor(test_data$state, levels = levels(train_data$state))
+  
+  # Predict on training data
+  train_predictions <- predict(model, train_data)
+  
+  # Predict on test data
+  test_predictions <- predict(model, test_data)
+  
+  # Calculate RMSE and MAE for training data
+  train_rmse <- rmse(train_data[[target_variable]], train_predictions)
+  train_mae <- mae(train_data[[target_variable]], train_predictions)
+  
+  # Calculate RMSE and MAE for test data
+  test_rmse <- rmse(test_data[[target_variable]], test_predictions)
+  test_mae <- mae(test_data[[target_variable]], test_predictions)
+  
+  # Return a list of metrics
+  return(list(train_rmse = train_rmse, train_mae = train_mae,
+              test_rmse = test_rmse, test_mae = test_mae))
+}
+```
+
+## Evaluating each model
+```{r}
+# Assuming models are already trained
+lm_results <- evaluate_model(lm_model_improved, train_data, test_data, "price")
+cart_results <- evaluate_model(pruned_cart_model, train_data, test_data, "price")
+nn_results <- evaluate_model(nn_model_improved, train_data_scaled, test_data_scaled, "price")
+rf_results <- evaluate_model(rf_model, train_data, test_data, "price")
+
+# Organize results into a data frame for easier comparison
+results_df <- data.frame(
+  Model = c("Linear Model", "CART", "Neural Network", "Random Forest"),
+  Train_RMSE = c(lm_results$train_rmse, cart_results$train_rmse, nn_results$train_rmse, rf_results$train_rmse),
+  Test_RMSE = c(lm_results$test_rmse, cart_results$test_rmse, nn_results$test_rmse, rf_results$test_rmse),
+  Train_MAE = c(lm_results$train_mae, cart_results$train_mae, nn_results$train_mae, rf_results$train_mae),
+  Test_MAE = c(lm_results$test_mae, cart_results$test_mae, nn_results$test_mae, rf_results$test_mae)
+)
+print(results_df)
+```
+
+## Visualizing the results
+```{r}
+library(ggplot2)
+
+# RMSE Comparison
+ggplot(results_df, aes(x = Model)) +
+  geom_bar(aes(y = Train_RMSE, fill = "Train RMSE"), stat = "identity", position = position_dodge()) +
+  geom_bar(aes(y = Test_RMSE, fill = "Test RMSE"), stat = "identity", position = position_dodge()) +
+  labs(title = "RMSE Comparison Across Models", y = "RMSE") +
+  scale_fill_manual(name = "Dataset", values = c("Train RMSE" = "blue", "Test RMSE" = "red")) +
+  theme_minimal()
+
+# MAE Comparison
+ggplot(results_df, aes(x = Model)) +
+  geom_bar(aes(y = Train_MAE, fill = "Train MAE"), stat = "identity", position = position_dodge()) +
+  geom_bar(aes(y = Test_MAE, fill = "Test MAE"), stat = "identity", position = position_dodge()) +
+  labs(title = "MAE Comparison Across Models", y = "MAE") +
+  scale_fill_manual(name = "Dataset", values = c("Train MAE" = "blue", "Test MAE" = "red")) +
+  theme_minimal()
+```
