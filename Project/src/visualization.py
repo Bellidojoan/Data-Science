@@ -36,7 +36,7 @@ grouped_data = data.groupby(['GameMode', 'EloCategory'])[['good', 'inaccuracy', 
 proportions_by_mode = grouped_data.div(grouped_data.sum(axis=1), axis=0).reset_index()
 
 # Visualize heatmaps by GameMode
-for mode in ['Bullet', 'Blitz', 'Rapid']:
+for mode in ['Bullet', 'Blitz', 'Rapid', 'Classical']:
     mode_data = proportions_by_mode[proportions_by_mode['GameMode'] == mode].set_index('EloCategory')
     plt.figure(figsize=(10, 6))
     sns.heatmap(
