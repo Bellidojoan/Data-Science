@@ -55,3 +55,36 @@ for mode in ['Bullet', 'Blitz', 'Rapid']:
     output_path = os.path.join(output_dir, f'heatmap-{mode.lower()}-moves.png')
     plt.savefig(output_path, dpi=300)
     print(f"Saved heatmap for {mode} to {output_path}")
+
+# Stacked Bar Chart
+# Analyze proportions by EloCategory (across all GameModes)
+stacked_grouped_data = data.groupby(['EloCategory'])[['good', 'inaccuracy', 'mistake', 'blunder']].sum()
+stacked_proportions = stacked_grouped_data.div(stacked_grouped_data.sum(axis=1), axis=0)
+
+# Plot the stacked bar chart
+plt.figure(figsize=(10, 6))
+
+# Define colors for the move qualities
+colors = ['#4CAF50', '#FFC107', '#FF5722', '#F44336']  # Green, yellow, orange, red
+
+# Stacked bar chart
+stacked_proportions.plot(
+    kind='bar',
+    stacked=True,
+    color=colors,
+    figsize=(10, 6),
+    edgecolor='black'
+)
+
+# Add labels and title
+plt.title('Move Quality Proportions by Elo Category', fontsize=16)
+plt.xlabel('Elo Category', fontsize=14)
+plt.ylabel('Proportion of Moves', fontsize=14)
+plt.xticks(rotation=0, fontsize=12)
+plt.legend(title='Move Quality', fontsize=12, title_fontsize=13)
+plt.tight_layout()
+
+# Save the plot
+output_path = os.path.join(output_dir, 'stacked_bar_chart_move_qualities.png')
+plt.savefig(output_path, dpi=300)
+print(f"Stacked bar chart saved to {output_path}")
