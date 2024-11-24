@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+from pandas.plotting import parallel_coordinates
 
 # Load the dataset
 file_path = '../results/quality_of_moves.csv'
@@ -31,10 +32,7 @@ category_order = ['Expert', 'Advanced', 'Intermediate', 'Low']
 data['EloCategory'] = pd.Categorical(data['EloCategory'], categories=category_order, ordered=True)
 
 # Analyze proportions by GameMode and EloCategory
-# Group data by GameMode and EloCategory
 grouped_data = data.groupby(['GameMode', 'EloCategory'])[['good', 'inaccuracy', 'mistake', 'blunder']].sum()
-
-# Calculate proportions for each category within each GameMode and EloCategory
 proportions_by_mode = grouped_data.div(grouped_data.sum(axis=1), axis=0).reset_index()
 
 # Visualize heatmaps by GameMode
@@ -46,28 +44,22 @@ for mode in ['Bullet', 'Blitz', 'Rapid']:
         annot=False,
         fmt=".2f",
         cmap="YlGnBu",
-        cbar_kws={'label': 'Proportion of Moves'}
+        cbar_kws={'label': 'Proportion of moves'}
     )
-    plt.title(f'Move Quality Proportions ({mode})')
-    plt.xlabel('Move Quality')
-    plt.ylabel('Elo Category')
+    plt.title(f'Move quality proportions ({mode})')
+    plt.xlabel('Move quality')
+    plt.ylabel('Elo category')
     plt.tight_layout()
     output_path = os.path.join(output_dir, f'heatmap-{mode.lower()}-moves.png')
     plt.savefig(output_path, dpi=300)
     print(f"Saved heatmap for {mode} to {output_path}")
 
 # Stacked Bar Chart
-# Analyze proportions by EloCategory (across all GameModes)
 stacked_grouped_data = data.groupby(['EloCategory'])[['good', 'inaccuracy', 'mistake', 'blunder']].sum()
 stacked_proportions = stacked_grouped_data.div(stacked_grouped_data.sum(axis=1), axis=0)
 
-# Plot the stacked bar chart
 plt.figure(figsize=(10, 6))
-
-# Define colors for the move qualities
-colors = ['#4CAF50', '#FFC107', '#FF5722', '#F44336']  # Green, yellow, orange, red
-
-# Stacked bar chart
+colors = ['#4CAF50', '#FFC107', '#FF5722', '#F44336']
 stacked_proportions.plot(
     kind='bar',
     stacked=True,
@@ -75,16 +67,33 @@ stacked_proportions.plot(
     figsize=(10, 6),
     edgecolor='black'
 )
-
-# Add labels and title
-plt.title('Move Quality Proportions by Elo Category', fontsize=16)
-plt.xlabel('Elo Category', fontsize=14)
-plt.ylabel('Proportion of Moves', fontsize=14)
+plt.title('Move quality proportions by elo category')
+plt.xlabel('Elo category')
+plt.ylabel('Proportion of moves')
 plt.xticks(rotation=0, fontsize=12)
-plt.legend(title='Move Quality', fontsize=12, title_fontsize=13)
+plt.legend(title='Move quality', fontsize=12, title_fontsize=13)
+plt.tight_layout()
+output_path = os.path.join(output_dir, 'stacked-move-qualities.png')
+plt.savefig(output_path, dpi=300)
+print(f"Stacked bar chart saved to {output_path}")
+
+# Parallel Coordinates Plot
+# Prepare data for the plot
+parallel_data = proportions_by_mode[['EloCategory', 'good', 'inaccuracy', 'mistake', 'blunder']].copy()
+
+# Assign a numeric value to EloCategory for the parallel coordinates plot
+parallel_data['EloCategoryNum'] = parallel_data['EloCategory'].cat.codes
+
+# Parallel Coordinates Plot
+plt.figure(figsize=(12, 8))
+parallel_coordinates(parallel_data, class_column='EloCategory', cols=['good', 'inaccuracy', 'mistake', 'blunder'], color=['#4CAF50', '#FFC107', '#FF5722', '#F44336'])
+plt.title('Parallel coordinates plot of move qualities by elo category')
+plt.xlabel('Move quality')
+plt.ylabel('Proportion of moves')
+plt.xticks(fontsize=12)
 plt.tight_layout()
 
 # Save the plot
-output_path = os.path.join(output_dir, 'stacked_bar_chart_move_qualities.png')
+output_path = os.path.join(output_dir, 'parallel-coordinates-move-qualities.png')
 plt.savefig(output_path, dpi=300)
-print(f"Stacked bar chart saved to {output_path}")
+print(f"Parallel coordinates plot saved to {output_path}")
