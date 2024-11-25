@@ -2,7 +2,7 @@ python-chess
 numpy
 pandas
 matplotlib
-seaborn=
+seaborn
 scipy
 scikit-learn
 tqdm
